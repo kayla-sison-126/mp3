@@ -341,7 +341,7 @@ module.exports = function (app, router) {
       }
 
       // validate assignedUser and assignedUserName if assigned
-      if (assignedUSer && assignedUser !== "") {
+      if (assignedUser && assignedUser !== "") {
         if (!mongoose.Types.ObjectId.isValid(assignedUser)) {
           return res.status(400).json({
             message: "Invalid assignedUser ID format",
