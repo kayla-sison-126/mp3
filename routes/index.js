@@ -1,7 +1,7 @@
 /*
  * Connect all of your endpoints together here.
  */
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 module.exports = function (app, router) {
   app.use("/api", require("./home.js")(router));
@@ -449,6 +449,32 @@ module.exports = function (app, router) {
         .json({ message: "Task deleted successfully", data: task });
     } catch (e) {
       return res.status(404).json({ message: "Task not found", data: {} });
+    }
+  });
+
+  router.delete("/users/:id", async (req, res) => {
+    try {
+      const userId = req.params.id;
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(404).json({ message: "User not fount", data: {} });
+      }
+
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found", data: {} });
+      }
+
+      await Task.updateMany(
+        { assignedUser: userId },
+        { $set: { assignedUser: "", assignedUserName: "unassigned" } },
+      );
+
+      await User.findByIdAndDelete(userId);
+      return res
+        .status(200)
+        .json({ message: "User deleted successfully", data: {} });
+    } catch (e) {
+      return res.status(404).json({ message: "User not found", data: {} });
     }
   });
 };
