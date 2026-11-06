@@ -267,9 +267,12 @@ module.exports = function (app, router) {
 
       return res.status(200).json({ message: "OK", data: task });
     } catch (e) {
+      if (e.name === "ValidationError") {
+        return res.status(400).json({ message: "Validation Error", data: {} });
+      }
       return res
-        .status(500)
-        .json({ message: "Internal Server Error", data: {} });
+        .status(404)
+        .json({ message: "Task not found or invalid ID", data: {} });
     }
   });
 
