@@ -154,6 +154,98 @@ module.exports = function (app, router) {
     }
   });
 
+  router.put("/tasks/:id", async (req, res) => {
+    try {
+      const taskId = req.params.id;
+
+      if (!mongoose.Types.ObjectId.isValid(taskId)) {
+        return res
+          .status(404)
+          .json({ message: "Task not found or invalid ID", data: {} });
+      }
+
+      const task = await Task.findById(taskId);
+      if (!task) {
+        return res.status(404).json({ message: "Task not found", data: {} });
+      }
+
+      const {
+        name,
+        description = "",
+        deadline,
+        completed = false,
+        assignedUser = "",
+        assignedUserName = "unassigned",
+      } = req.body;
+
+      // check required fields
+      if (!name || !deadline) {
+        return res
+          .status(400)
+          .json({ message: "Name and deadline are required", data: {} });
+      }
+
+      // check assignedUser if provided
+      if (assignedUser && assignedUser !== "") {
+        if (!mongoose.Types.ObjectId.isValid(assignedUser)) {
+          return res
+            .status(400)
+            .json({ message: "Invalid assignedUser ID format", data: {} });
+        }
+        const user = await User.findById(assignedUser);
+        if (!user) {
+          return res
+            .status(404)
+            .json({ message: "Assigned user does not exist", data: {} });
+        }
+        if (assignedUserName !== user.name) {
+          return res
+            .status(400)
+            .json({ message: "assignedUserName mismatch", data: {} });
+        }
+      }
+
+      const oldAssignedUser = task.assignedUser;
+      const wasCompleted = task.completed;
+
+      if (oldAssignedUser && oldAssignedUser !== assignedUser) {
+        await User.findByIdAndUpdate(oldAssignedUser, {
+          $pull: { pendingTasks: taskId },
+        });
+      }
+
+      // update task
+      task.name = name;
+      task.description = description;
+      task.deadline = deadline;
+      task.completed = completed;
+      task.assignedUser = assignedUser;
+      task.assignedUserName = assignedUserName;
+      await task.save();
+
+      // sync pendingTasks
+      if (assignedUser) {
+        if (completed) {
+          // remove completed tasks from pendingTasks
+          await User.findByIdAndUpdate(assignedUser, {
+            $pull: { pendingTasks: taskId },
+          });
+        } else {
+          // add unfinished tasks to pendingTasks
+          await User.findByIdAndUpdate(assignedUser, {
+            $addToSet: { pendingTasks: taskId },
+          });
+        }
+      }
+
+      return res.status(200).json({ message: "OK", data: task });
+    } catch (e) {
+      return res
+        .status(500)
+        .json({ message: "Internal Server Error", data: {} });
+    }
+  });
+
   router.post("/users", async (req, res) => {
     try {
       const { name, email, pendingTasks = [] } = req.body;
@@ -293,6 +385,10 @@ module.exports = function (app, router) {
       return res
         .status(201)
         .json({ message: "Task created successfully", data: newTask });
-    } catch (e) {}
+    } catch (e) {
+      return res
+        .status(500)
+        .json({ message: "Internal Server Error", data: {} });
+    }
   });
 };
