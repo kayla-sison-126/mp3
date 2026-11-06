@@ -98,6 +98,33 @@ module.exports = function (app, router) {
     }
   });
 
+  router.get("/users/:id", async (req, res) => {
+    try {
+      let dbQuery = User.findById(req.params.id);
+
+      if (req.query.select) {
+        try {
+          dbQuery = dbQuery.select(JSON.parse(req.query.select));
+        } catch (e) {
+          return res
+            .status(400)
+            .json({ message: "Invalid JSON in select parameter", data: {} });
+        }
+      }
+
+      const user = await dbQuery.exec();
+      if (!user) {
+        return res.status(404).json({ message: "User not found", data: {} });
+      }
+
+      return res.status(200).json({ message: "OK", data: user });
+    } catch (e) {
+      return res
+        .status(404)
+        .json({ message: "User not found or invalid ID", data: {} });
+    }
+  });
+
   router.put("/users/:id", async (req, res) => {
     try {
       const userId = req.params.id;

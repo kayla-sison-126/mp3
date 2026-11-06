@@ -7,7 +7,7 @@ var TaskSchema = new mongoose.Schema({
     completed: { type: Boolean, default: false },
     assignedUser: { type: String, default: '' },
     assignedUserName: { type: String, default: 'unassigned' },
-    dataCreated: { type: Date, default: Date.now },
+    dateCreated: { type: Date, default: Date.now },
 })
 
 module.exports = mongoose.model('Task', TaskSchema);
