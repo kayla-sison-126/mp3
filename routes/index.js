@@ -471,7 +471,7 @@ module.exports = function (app, router) {
 
       await User.findByIdAndDelete(userId);
       return res
-        .status(200)
+        .status(204)
         .json({ message: "User deleted successfully", data: {} });
     } catch (e) {
       return res.status(404).json({ message: "User not found", data: {} });
