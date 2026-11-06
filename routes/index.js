@@ -1,6 +1,8 @@
 /*
  * Connect all of your endpoints together here.
  */
+require('mongoose');
+
 module.exports = function (app, router) {
   app.use("/api", require("./home.js")(router));
 
