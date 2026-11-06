@@ -127,6 +127,72 @@ module.exports = function (app, router) {
     }
   });
 
+  router.get("/users", async (req, res) => {
+    try {
+      let query = {};
+
+      // 'where' param
+      if (req.query.where) {
+        try {
+          query = JSON.parse(req.query.where);
+        } catch (e) {
+          return res
+            .status(400)
+            .json({ message: "Invalid JSON in 'where' parameter", data: {} });
+        }
+      }
+
+      // 'count' param
+      if (req.query.count === "true") {
+        const count = await User.countDocuments(query);
+        return res.status(200).json({ message: "OK", data: count });
+      }
+
+      let dbQuery = User.find(query);
+
+      // 'sort' param
+      if (req.query.sort) {
+        try {
+          dbQuery = dbQuery.sort(JSON.parse(req.query.sort));
+        } catch (e) {
+          return res
+            .status(400)
+            .json({ message: "Invalid JSON in 'sort' parameter", data: {} });
+        }
+      }
+
+      // 'select' param
+      if (req.query.select) {
+        try {
+          dbQuery = dbQuery.select(JSON.parse(req.query.select));
+        } catch (e) {
+          return res
+            .status(400)
+            .json({ message: "Invalid JSON in 'select' parameter", data: {} });
+        }
+      }
+
+      // 'skip' param
+      if (req.query.skip) {
+        const skipVal = parseInt(req.query.skip, 10);
+        if (!isNaN(skipVal)) dbQuery = dbQuery.skip(skipVal);
+      }
+
+      // 'limit' param 
+      if (req.query.limit) {
+        const limitVal = parseInt(req.query.limit, 10);
+        if (!isNaN(limitVal)) {
+          dbQuery = dbQuery.limit(limitVal);
+        }
+      }
+
+      const users = await dbQuery.exec();
+      return res.status(200).json({ message: "OK", data: users });
+    } catch (e) {
+      return res.status(500).json({ message: "Server Error", data: {} });
+    }
+  });
+
   router.put("/users/:id", async (req, res) => {
     try {
       const userId = req.params.id;
@@ -456,7 +522,7 @@ module.exports = function (app, router) {
     try {
       const userId = req.params.id;
       if (!mongoose.Types.ObjectId.isValid(userId)) {
-        return res.status(404).json({ message: "User not fount", data: {} });
+        return res.status(404).json({ message: "User not found", data: {} });
       }
 
       const user = await User.findById(userId);
