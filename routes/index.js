@@ -153,4 +153,146 @@ module.exports = function (app, router) {
         .json({ message: "Internal Server Error", data: {} });
     }
   });
+
+  router.post("/users", async (req, res) => {
+    try {
+      const { name, email, pendingTasks = [] } = req.body;
+
+      // check required fields
+      if (!name || !email) {
+        return res
+          .status(400)
+          .json({ message: "Name and email are required", data: {} });
+      }
+
+      // check if email is already used
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res
+          .status(400)
+          .json({ message: "Email is already in use.", data: {} });
+      }
+
+      // check pendingTasks
+      if (!Array.isArray(pendingTasks)) {
+        return res.status(400).json({
+          message: "pendingTasks must be an array",
+          data: {},
+        });
+      }
+
+      for (const taskId of pendingTasks) {
+        if (!mongoose.Types.ObjectId.isValid(taskId)) {
+          return res.status(400).json({
+            message: "Invalid task ID format in pendingTasks",
+            data: {},
+          });
+        }
+        const task = await Task.findById(taskId);
+        if (!task) {
+          return res.status(404).json({
+            message: `Referenced task ${taskId} does not exist`,
+            data: {},
+          });
+        }
+        if (task.completed) {
+          return res.status(400).json({
+            message: "Cannot add a completed task to pendingTasks",
+            data: {},
+          });
+        }
+      }
+
+      // create and save new user
+      const newUser = new User({ name, email, pendingTasks });
+      await newUser.save();
+
+      // update assigned tasks to reference the user
+      if (pendingTasks.length > 0) {
+        await Task.updateMany(
+          { _id: { $in: pendingTasks } },
+          {
+            $set: {
+              assignedUser: newUser._id.toString(),
+              assignedUserName: name,
+            },
+          },
+        );
+      }
+
+      return res
+        .status(201)
+        .json({ message: "User created successfully", data: newUser });
+    } catch (e) {
+      return res
+        .status(500)
+        .json({ message: "Internal Server Error", data: {} });
+    }
+  });
+
+  router.post("/tasks", async (req, res) => {
+    try {
+      const {
+        name,
+        description = "",
+        deadline,
+        completed = false,
+        assignedUser = "",
+        assignedUserName = "unassigned",
+      } = req.body;
+
+      // check required fields
+      if (!name || !deadline) {
+        return res
+          .status(400)
+          .json({ message: "Name and deadline are required", data: {} });
+      }
+
+      // validate assignedUser and assignedUserName if assigned
+      if (assignedUSer && assignedUser !== "") {
+        if (!mongoose.Types.ObjectId.isValid(assignedUser)) {
+          return res.status(400).json({
+            message: "Invalid assignedUser ID format",
+            data: {},
+          });
+        }
+        const user = await User.findById(assignedUser);
+        if (!user) {
+          return res.status(404).json({
+            message: "Assigned user does not exist",
+            data: {},
+          });
+        }
+
+        if (assignedUserName !== user.name) {
+          return res.status(400).json({
+            message: "assignedUserName does not match the assigned user's name",
+            data: {},
+          });
+        }
+      }
+
+      // create and save new task
+      const newTask = new Task({
+        name,
+        description,
+        deadline,
+        completed,
+        assignedUser,
+        assignedUserName,
+      });
+      await newTask.save();
+
+      // if assigned and pending, add to pendingTasks
+      if (assignedUser && !completed) {
+        await User.findByIdAndUpdate(assignedUser, {
+          $addToSet: { pendingTasks: newTask._id.toString() },
+        });
+      }
+
+      return res
+        .status(201)
+        .json({ message: "Task created successfully", data: newTask });
+    } catch (e) {}
+  });
 };
