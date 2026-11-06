@@ -445,7 +445,7 @@ module.exports = function (app, router) {
 
       await Task.findByIdAndDelete(taskId);
       return res
-        .status(200)
+        .status(204)
         .json({ message: "Task deleted successfully", data: task });
     } catch (e) {
       return res.status(404).json({ message: "Task not found", data: {} });
