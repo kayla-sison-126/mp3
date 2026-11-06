@@ -421,4 +421,32 @@ module.exports = function (app, router) {
         .json({ message: "Internal Server Error", data: {} });
     }
   });
+
+  router.delete("/tasks/:id", async (req, res) => {
+    try {
+      const taskId = req.params.id;
+      if (!mongoose.Types.ObjectId.isValid(taskId)) {
+        return res.status(404).json({ message: "Task not found", data: {} });
+      }
+
+      const task = await Task.findById(taskId);
+      if (!task) {
+        return res.status(404).json({ message: "Task not found", data: {} });
+      }
+
+      // remove from pendingTasks
+      if (task.assignedUser) {
+        await User.findByIdAndUpdate(task.assignedUser, {
+          $pull: { pendingTasks: taskId },
+        });
+      }
+
+      await Task.findByIdAndDelete(taskId);
+      return res
+        .status(200)
+        .json({ message: "Task deleted successfully", data: task });
+    } catch (e) {
+      return res.status(404).json({ message: "Task not found", data: {} });
+    }
+  });
 };
